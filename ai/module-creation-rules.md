@@ -4,7 +4,11 @@
 
 ## 一、模块结构概述
 
-JetLinks 项目采用模块化架构，所有业务模块位于 `modules/` 目录下：
+JetLinks 项目采用模块化架构，所有业务模块位于 `modules/` 目录下。根据模块是否需要提供跨服务调用，模块结构分为两种形式：
+
+### 1.1 单模块结构（简单场景）
+
+适用于不需要跨服务调用的简单业务模块：
 
 ```
 jetlinks-ultimate/
@@ -37,6 +41,82 @@ jetlinks-ultimate/
 │   │                   └── web/           # 控制器测试
 ```
 
+### 1.2 多模块结构（跨服务调用场景，推荐）
+
+**适用场景**: 当模块需要提供跨服务调用时（默认推荐使用此结构），应创建两个子模块。
+
+**命名规范**：
+- 父模块：`{项目简写}-{模块名}`（如 `pms-report`）
+- API 模块：`{模块名}-api`（如 `report-api`）
+- Manager 模块：`{模块名}-manager`（如 `report-manager`，实现模块）
+
+```
+jetlinks-ultimate/
+├── modules/
+│   ├── {项目简写}-{模块名}/              # 父模块目录（如 pms-report）
+│   │   ├── pom.xml                       # 父模块 POM（聚合子模块）
+│   │   │
+│   │   ├── {模块名}-api/                 # API 模块（对外接口定义，如 report-api）
+│   │   │   ├── pom.xml
+│   │   │   └── src/
+│   │   │       ├── main/
+│   │   │       │   └── java/
+│   │   │       │       └── org/jetlinks/pro/{模块名}/api/
+│   │   │       │           ├── entity/        # 实体类（DTO、VO）
+│   │   │       │           ├── enums/         # 枚举类
+│   │   │       │           ├── command/       # 命令接口
+│   │   │       │           ├── query/         # 查询接口
+│   │   │       │           ├── event/         # 事件定义
+│   │   │       │           └── constants/     # 常量定义
+│   │   │       └── test/
+│   │   │           └── java/
+│   │   │
+│   │   └── {模块名}-manager/            # Manager 实现模块（如 report-manager）
+│   │       ├── pom.xml
+│   │       └── src/
+│   │           ├── main/
+│   │           │   ├── java/
+│   │           │   │   └── org/jetlinks/pro/{模块名}/
+│   │           │   │       ├── entity/        # 实体实现类
+│   │           │   │       ├── service/       # 服务实现类
+│   │           │   │       ├── web/           # 控制器
+│   │           │   │       ├── command/       # 命令实现
+│   │           │   │       ├── assets/        # 资产类型定义(可选)
+│   │           │   │       └── configuration/ # 配置类
+│   │           │   └── resources/
+│   │           │       ├── META-INF/
+│   │           │       │   └── spring/
+│   │           │       │       └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
+│   │           │       └── i18n/
+│   │           │           └── {模块名}-manager/
+│   │           │               ├── messages_zh.properties
+│   │           │               └── messages_en.properties
+│   │           └── test/
+│   │               └── java/
+│   │                   └── org/jetlinks/pro/{模块名}/
+│   │                       ├── service/       # 服务测试
+│   │                       └── web/           # 控制器测试
+```
+
+#### 多模块结构说明：
+
+1. **{模块名}-api 模块**：
+   - 仅包含接口定义、实体类（DTO/VO）、枚举、常量等
+   - 不包含具体实现逻辑
+   - 可被其他服务依赖，用于跨服务调用
+   - 依赖项尽可能少，只包含必要的基础依赖
+
+2. **{模块名}-manager 模块**（实现模块）：
+   - 包含所有业务逻辑实现
+   - 依赖 `{模块名}-api` 模块
+   - 包含控制器、服务实现、数据库操作等
+   - 包含配置类、资源文件、测试代码等
+
+3. **父模块 `{项目简写}-{模块名}`**：
+   - 聚合 api 和 manager 两个子模块
+   - 统一管理版本号和公共配置
+   - 项目简写如：pms（平台管理系统）、dms（设备管理系统）等
+
 ---
 
 ## 二、创建模块步骤
@@ -46,10 +126,19 @@ jetlinks-ultimate/
 在创建模块前，需要明确以下信息：
 
 #### 基础信息
-- **模块名称**: 如 `device`, `notify`, `authentication`（使用短横线命名，如 `rule-engine`）
+- **模块名称**: 如 `report`, `notify`, `workflow`（使用短横线命名，如 `rule-engine`）
+- **项目简写**: 如 `pms`（平台管理系统）、`dms`（设备管理系统）等
 - **模块描述**: 简要说明模块用途
 - **包名**: 通常为 `org.jetlinks.pro.{模块名}`
-- **artifactId**: 通常为 `{模块名}-manager`
+- **artifactId**: 
+  - 单模块：`{模块名}-manager`（如 `template-manager`）
+  - 多模块：
+    - 父模块：`{项目简写}-{模块名}`（如 `pms-report`）
+    - API 子模块：`{模块名}-api`（如 `report-api`）
+    - Manager 子模块：`{模块名}-manager`（如 `report-manager`）
+- **模块结构选择**: 
+  - **单模块**: 简单业务，不需要跨服务调用
+  - **多模块（推荐）**: 需要提供跨服务调用接口，或模块较复杂需要拆分
 
 #### 技术选型
 - **编程模式**: 
@@ -66,12 +155,38 @@ jetlinks-ultimate/
 - **权限控制**: 是否需要资产权限控制
 - **资产类型**: 如果需要，定义资产类型
 - **依赖组件**: 列出需要依赖的其他组件
+- **跨服务调用**: 是否需要被其他服务调用（推荐使用多模块结构）
 
 ---
 
-### 2.2 创建 pom.xml
+### 2.2 选择模块结构
 
-#### 基础模板
+根据业务需求选择合适的模块结构：
+
+#### 使用单模块结构的场景：
+- ✅ 简单的 CRUD 业务
+- ✅ 不需要被其他服务依赖
+- ✅ 模块代码量较小（< 50 个类）
+- ✅ 快速原型开发
+
+#### 使用多模块结构的场景（推荐）：
+- ✅ 需要提供跨服务调用接口
+- ✅ 需要在微服务架构中被其他服务依赖
+- ✅ 模块较复杂，需要清晰的接口定义
+- ✅ 需要版本化管理 API
+- ✅ 需要限制其他服务对内部实现的依赖
+
+> **建议**: 对于新建模块，默认使用多模块结构，即使暂时不需要跨服务调用，这样可以为未来扩展留下空间。
+
+---
+
+### 2.3 创建 pom.xml
+
+根据选择的模块结构，创建对应的 POM 文件。
+
+#### 方式一：单模块 POM（简单场景）
+
+适用于不需要跨服务调用的简单业务模块：
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -265,6 +380,217 @@ jetlinks-ultimate/
 </project>
 ```
 
+#### 方式二：多模块 POM（跨服务调用场景，推荐）
+
+适用于需要提供跨服务调用的模块，将模块拆分为 API 和 Manager 两个子模块。
+
+##### 1. 父模块 POM (modules/{项目简写}-{模块名}/pom.xml)
+
+示例：`modules/pms-report/pom.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- 父项目配置 -->
+    <parent>
+        <groupId>org.jetlinks.pro</groupId>
+        <artifactId>jetlinks-parent</artifactId>
+        <version>2.11.0-SNAPSHOT</version>
+        <relativePath>../../jetlinks-parent</relativePath>
+    </parent>
+
+    <!-- 父模块 artifactId: {项目简写}-{模块名} -->
+    <artifactId>pms-report</artifactId>
+    <packaging>pom</packaging>
+    <name>JetLinks Pro Report Module</name>
+    <description>报表管理模块</description>
+
+    <!-- 聚合子模块 -->
+    <modules>
+        <module>report-api</module>
+        <module>report-manager</module>
+    </modules>
+
+    <!-- Maven 仓库配置 -->
+    <repositories>
+        <repository>
+            <id>jetlinks</id>
+            <name>JetLinks Maven Repository</name>
+            <url>https://nexus.jetlinks.cn/content/groups/jetlinks/</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
+        </repository>
+    </repositories>
+</project>
+```
+
+##### 2. API 模块 POM (modules/{项目简写}-{模块名}/{模块名}-api/pom.xml)
+
+示例：`modules/pms-report/report-api/pom.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- 父模块配置 -->
+    <parent>
+        <groupId>org.jetlinks.pro</groupId>
+        <artifactId>pms-report</artifactId>
+        <version>2.11.0-SNAPSHOT</version>
+    </parent>
+
+    <!-- API 模块 artifactId: {模块名}-api -->
+    <artifactId>report-api</artifactId>
+    <name>JetLinks Pro Report API</name>
+    <description>报表管理模块 - API 接口定义</description>
+
+    <dependencies>
+        <!-- ========== 最小化依赖（仅包含必要的基础依赖）========== -->
+        
+        <!-- Lombok: 减少样板代码 -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Reactor Core: 响应式编程（如果使用响应式） -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Swagger 注解: API 文档 -->
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations-jakarta</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Validation API: 参数验证 -->
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <!-- Jackson 注解: JSON 序列化 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+
+        <!-- JetLinks SDK API: 如需要设备相关定义 -->
+        <dependency>
+            <groupId>org.jetlinks.sdk</groupId>
+            <artifactId>jetlinks-sdk-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+##### 3. Manager 实现模块 POM (modules/{项目简写}-{模块名}/{模块名}-manager/pom.xml)
+
+示例：`modules/pms-report/report-manager/pom.xml`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- 父模块配置 -->
+    <parent>
+        <groupId>org.jetlinks.pro</groupId>
+        <artifactId>pms-report</artifactId>
+        <version>2.11.0-SNAPSHOT</version>
+    </parent>
+
+    <!-- Manager 模块 artifactId: {模块名}-manager -->
+    <artifactId>report-manager</artifactId>
+    <name>JetLinks Pro Report Manager</name>
+    <description>报表管理模块 - 服务实现</description>
+
+    <dependencies>
+        <!-- ========== API 模块依赖 ========== -->
+        
+        <!-- 依赖本模块的 API -->
+        <dependency>
+            <groupId>org.jetlinks.pro</groupId>
+            <artifactId>report-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- ========== 核心依赖(必需) ========== -->
+        
+        <!-- 通用组件: 包含基础工具类、实体类等 -->
+        <dependency>
+            <groupId>org.jetlinks.pro</groupId>
+            <artifactId>common-component</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- HSWeb Web 框架: 提供 CRUD、权限控制等基础功能 -->
+        <dependency>
+            <groupId>org.hswebframework.web</groupId>
+            <artifactId>hsweb-starter</artifactId>
+            <version>${hsweb.framework.version}</version>
+        </dependency>
+
+        <!-- HSWeb 权限 API -->
+        <dependency>
+            <groupId>org.hswebframework.web</groupId>
+            <artifactId>hsweb-authorization-api</artifactId>
+            <version>${hsweb.framework.version}</version>
+        </dependency>
+
+        <!-- EasyORM: 响应式/阻塞式 ORM 框架 -->
+        <dependency>
+            <groupId>org.hswebframework</groupId>
+            <artifactId>hsweb-easy-orm-rdb</artifactId>
+        </dependency>
+
+        <!-- R2DBC H2: 用于内存数据库(开发/测试) -->
+        <dependency>
+            <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-h2</artifactId>
+        </dependency>
+
+        <!-- ========== 其他常用组件(按需添加) ========== -->
+        
+        <!-- 资产组件: 如需要资产权限控制，添加此依赖 -->
+        <dependency>
+            <groupId>org.jetlinks.pro</groupId>
+            <artifactId>assets-component</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- 其他依赖参考单模块 POM 中的依赖说明 -->
+
+        <!-- ========== 测试依赖 ========== -->
+
+        <!-- 测试组件 -->
+        <dependency>
+            <groupId>org.jetlinks.pro</groupId>
+            <artifactId>test-component</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
+```
+
 #### 常见依赖说明
 
 | 依赖组件 | artifactId | 用途 | 是否必需 |
@@ -289,21 +615,67 @@ jetlinks-ultimate/
 
 ---
 
-### 2.3 创建目录结构
+### 2.4 创建目录结构
+
+根据选择的模块结构创建对应的目录。
+
+#### 方式一：单模块目录结构
 
 ```bash
-# 创建主要目录
-mkdir -p modules/{模块名}-manager/src/main/java/org/jetlinks/pro/{模块名}/{entity,service,web,enums}
+# 创建单模块目录结构
+mkdir -p modules/{模块名}-manager/src/main/java/org/jetlinks/pro/{模块名}/{entity,service,web,enums,configuration}
 mkdir -p modules/{模块名}-manager/src/main/resources/META-INF/spring
 mkdir -p modules/{模块名}-manager/src/main/resources/i18n/{模块名}-manager
 mkdir -p modules/{模块名}-manager/src/test/java/org/jetlinks/pro/{模块名}/{service,web}
 ```
 
+#### 方式二：多模块目录结构（推荐）
+
+示例：创建 `pms-report` 模块
+
+```bash
+# 1. 创建父模块目录（{项目简写}-{模块名}）
+mkdir -p modules/pms-report
+
+# 2. 创建 API 模块目录结构（{模块名}-api）
+mkdir -p modules/pms-report/report-api/src/main/java/org/jetlinks/pro/report/api/{entity,enums,command,query,event,constants}
+mkdir -p modules/pms-report/report-api/src/test/java/org/jetlinks/pro/report/api
+
+# 3. 创建 Manager 模块目录结构（{模块名}-manager）
+mkdir -p modules/pms-report/report-manager/src/main/java/org/jetlinks/pro/report/{entity,service,web,command,configuration}
+mkdir -p modules/pms-report/report-manager/src/main/resources/META-INF/spring
+mkdir -p modules/pms-report/report-manager/src/main/resources/i18n/report-manager
+mkdir -p modules/pms-report/report-manager/src/test/java/org/jetlinks/pro/report/{service,web}
+```
+
+**通用模板命令**：
+
+```bash
+# 替换以下变量：
+# - {项目简写}: 如 pms
+# - {模块名}: 如 report
+
+# 1. 创建父模块目录
+mkdir -p modules/{项目简写}-{模块名}
+
+# 2. 创建 API 模块
+mkdir -p modules/{项目简写}-{模块名}/{模块名}-api/src/main/java/org/jetlinks/pro/{模块名}/api/{entity,enums,command,query,event,constants}
+mkdir -p modules/{项目简写}-{模块名}/{模块名}-api/src/test/java/org/jetlinks/pro/{模块名}/api
+
+# 3. 创建 Manager 模块
+mkdir -p modules/{项目简写}-{模块名}/{模块名}-manager/src/main/java/org/jetlinks/pro/{模块名}/{entity,service,web,command,configuration}
+mkdir -p modules/{项目简写}-{模块名}/{模块名}-manager/src/main/resources/META-INF/spring
+mkdir -p modules/{项目简写}-{模块名}/{模块名}-manager/src/main/resources/i18n/{模块名}-manager
+mkdir -p modules/{项目简写}-{模块名}/{模块名}-manager/src/test/java/org/jetlinks/pro/{模块名}/{service,web}
+```
+
 ---
 
-### 2.4 创建配置类
+### 2.5 创建配置类
 
-#### AutoConfiguration.imports
+#### 单模块配置
+
+##### AutoConfiguration.imports
 
 创建文件: `src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
 
@@ -311,7 +683,7 @@ mkdir -p modules/{模块名}-manager/src/test/java/org/jetlinks/pro/{模块名}/
 org.jetlinks.pro.{模块名}.configuration.{模块名首字母大写}ManagerConfiguration
 ```
 
-#### Configuration 类
+##### Configuration 类
 
 创建文件: `src/main/java/org/jetlinks/pro/{模块名}/configuration/{模块名首字母大写}ManagerConfiguration.java`
 
@@ -345,9 +717,62 @@ public class {模块名首字母大写}ManagerConfiguration {
 }
 ```
 
+#### 多模块配置
+
+在多模块结构中，只需要在 Manager 模块创建配置类。
+
+**示例：`pms-report/report-manager` 模块**
+
+##### AutoConfiguration.imports
+
+创建文件: `report-manager/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
+
+```
+org.jetlinks.pro.report.configuration.ReportManagerConfiguration
+```
+
+##### Configuration 类
+
+创建文件: `report-manager/src/main/java/org/jetlinks/pro/report/configuration/ReportManagerConfiguration.java`
+
+```java
+package org.jetlinks.pro.report.configuration;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.hswebframework.web.crud.annotation.EnableEasyormRepository;
+
+/**
+ * 报表管理模块配置
+ *
+ * @author {作者}
+ * @since {版本}
+ */
+@Configuration
+@EnableEasyormRepository("org.jetlinks.pro.report.entity")  // 启用实体类扫描
+@Slf4j
+public class ReportManagerConfiguration {
+
+    @Bean
+    public ReportProperties reportProperties() {
+        return new ReportProperties();
+    }
+
+    // 其他Bean配置...
+}
+```
+
+**通用模板**：
+
+```
+文件路径: {模块名}-manager/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+内容: org.jetlinks.pro.{模块名}.configuration.{模块名首字母大写}ManagerConfiguration
+```
+
 ---
 
-### 2.5 创建国际化文件
+### 2.6 创建国际化文件
 
 #### 中文消息文件
 创建: `src/main/resources/i18n/{模块名}-manager/messages_zh.properties`
@@ -389,7 +814,7 @@ validation.{模块名}_id_invalid=Invalid ID format
 
 ---
 
-### 2.6 创建实体类
+### 2.7 创建实体类
 
 参考 [common-crud-rules](./common-crud-rules) 第一章节 "实体层(Entity)开发规范"
 
@@ -401,9 +826,13 @@ validation.{模块名}_id_invalid=Invalid ID format
 - 使用 `@JsonCodec` 存储复杂对象
 - 使用 `@EnumCodec` 处理枚举类型
 
+**多模块注意事项**:
+- API 模块：定义 DTO/VO 等对外接口实体，通常是简单的 POJO
+- Manager 模块：定义数据库实体类（继承 `GenericEntity`）
+
 ---
 
-### 2.7 创建服务类
+### 2.8 创建服务类
 
 参考 [common-crud-rules](./common-crud-rules) 第二章节 "服务层(Service)开发规范"
 
@@ -415,9 +844,13 @@ validation.{模块名}_id_invalid=Invalid ID format
 - 继承 `GenericCrudService<Entity, String>`
 - 返回普通 Java 对象、`List<T>` 或 `Optional<T>`
 
+**多模块注意事项**:
+- API 模块：定义服务接口（如需要跨服务调用）
+- Manager 模块：实现服务接口和业务逻辑
+
 ---
 
-### 2.8 创建控制器类
+### 2.9 创建控制器类
 
 参考 [common-crud-rules](./common-crud-rules) 第三章节 "控制器层(Controller)开发规范"
 
@@ -437,9 +870,12 @@ validation.{模块名}_id_invalid=Invalid ID format
 - `@Tag`: Swagger文档分组
 - `@AssetsController`: 资产权限控制(可选)
 
+**多模块注意事项**:
+- 控制器仅在 Manager 模块中创建
+
 ---
 
-### 2.9 创建资产类型(可选)
+### 2.10 创建资产类型(可选)
 
 如果模块需要资产权限控制，创建资产类型定义:
 
@@ -563,16 +999,29 @@ public class {资产类型名称}AssetSupplier implements AssetSupplier {
 
 ---
 
-### 2.10 将模块添加到父 POM
+### 2.11 将模块添加到父 POM
 
 编辑根目录的 `pom.xml`，在 `<modules>` 标签中添加:
 
+**单模块示例**：
 ```xml
 <modules>
     <!-- 其他模块 -->
-    <module>modules/{模块名}-manager</module>
+    <module>modules/template-manager</module>
 </modules>
 ```
+
+**多模块示例**：
+```xml
+<modules>
+    <!-- 其他模块 -->
+    <module>modules/pms-report</module>  <!-- 只添加父模块 -->
+</modules>
+```
+
+> **注意**: 
+> - 单模块：直接添加模块目录，如 `modules/{模块名}-manager`
+> - 多模块：只添加父模块目录，如 `modules/{项目简写}-{模块名}`，子模块（api、manager）由父模块的 POM 自动管理
 
 ---
 
@@ -626,7 +1075,7 @@ public class {资产类型名称}AssetSupplier implements AssetSupplier {
 
 ## 四、常见场景示例
 
-### 4.1 创建简单的 CRUD 模块
+### 4.1 创建简单的 CRUD 模块（单模块）
 
 **场景**: 创建一个"配置模板"管理模块
 
@@ -636,7 +1085,7 @@ mkdir -p modules/template-manager/src/main/java/org/jetlinks/pro/template/{entit
 mkdir -p modules/template-manager/src/main/resources/{META-INF/spring,i18n/template-manager}
 mkdir -p modules/template-manager/src/test/java/org/jetlinks/pro/template/{service,web}
 
-# 2. 创建 pom.xml (使用上面的基础模板)
+# 2. 创建 pom.xml (使用上面的单模块基础模板)
 
 # 3. 创建配置类
 # src/main/java/org/jetlinks/pro/template/configuration/TemplateManagerConfiguration.java
@@ -658,7 +1107,98 @@ mkdir -p modules/template-manager/src/test/java/org/jetlinks/pro/template/{servi
 # src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
 ```
 
-### 4.2 创建带资产权限的模块
+### 4.2 创建支持跨服务调用的模块（多模块，推荐）
+
+**场景**: 创建一个"任务调度"管理模块，需要被其他服务调用
+
+**命名示例**：
+- 父模块：`pms-scheduler`
+- API 模块：`scheduler-api`
+- Manager 模块：`scheduler-manager`
+
+```bash
+# 1. 创建父模块目录（{项目简写}-{模块名}）
+mkdir -p modules/pms-scheduler
+
+# 2. 创建父模块 POM
+# modules/pms-scheduler/pom.xml
+# artifactId: pms-scheduler
+# modules: scheduler-api, scheduler-manager
+
+# 3. 创建 API 模块目录结构
+mkdir -p modules/pms-scheduler/scheduler-api/src/main/java/org/jetlinks/pro/scheduler/api/{entity,enums,command,query,event}
+mkdir -p modules/pms-scheduler/scheduler-api/src/test/java/org/jetlinks/pro/scheduler/api
+
+# 4. 创建 API 模块 POM
+# modules/pms-scheduler/scheduler-api/pom.xml
+# parent: pms-scheduler
+# artifactId: scheduler-api
+
+# 5. 在 API 模块创建接口定义
+# - entity: 定义 DTO/VO (如 TaskDTO.java, TaskResultVO.java)
+# - enums: 定义枚举 (如 TaskStatus.java)
+# - command: 定义命令接口 (如 ExecuteTaskCommand.java)
+# - query: 定义查询接口 (如 TaskQuery.java)
+# - event: 定义事件 (如 TaskExecutedEvent.java)
+
+# 6. 创建 Manager 模块目录结构
+mkdir -p modules/pms-scheduler/scheduler-manager/src/main/java/org/jetlinks/pro/scheduler/{entity,service,web,command,configuration}
+mkdir -p modules/pms-scheduler/scheduler-manager/src/main/resources/{META-INF/spring,i18n/scheduler-manager}
+mkdir -p modules/pms-scheduler/scheduler-manager/src/test/java/org/jetlinks/pro/scheduler/{service,web}
+
+# 7. 创建 Manager 模块 POM
+# modules/pms-scheduler/scheduler-manager/pom.xml
+# parent: pms-scheduler
+# artifactId: scheduler-manager
+# 依赖: scheduler-api
+
+# 8. 在 Manager 模块创建实现
+# - entity: 数据库实体类 (如 ScheduledTaskEntity.java)
+# - service: 服务实现 (如 ScheduledTaskService.java)
+# - web: 控制器 (如 ScheduledTaskController.java)
+# - command: 命令实现 (如 ExecuteTaskCommandImpl.java)
+# - configuration: 配置类 (如 SchedulerManagerConfiguration.java)
+
+# 9. 创建配置文件
+# modules/pms-scheduler/scheduler-manager/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+# 内容: org.jetlinks.pro.scheduler.configuration.SchedulerManagerConfiguration
+
+# 10. 创建国际化文件
+# modules/pms-scheduler/scheduler-manager/src/main/resources/i18n/scheduler-manager/messages_zh.properties
+# modules/pms-scheduler/scheduler-manager/src/main/resources/i18n/scheduler-manager/messages_en.properties
+
+# 11. 在根 POM 中添加模块
+# 编辑 pom.xml，添加: <module>modules/pms-scheduler</module>
+```
+
+**跨服务调用示例**：
+
+其他服务只需依赖 API 模块即可调用：
+
+```xml
+<!-- 在其他服务的 pom.xml 中添加 -->
+<dependency>
+    <groupId>org.jetlinks.pro</groupId>
+    <artifactId>scheduler-api</artifactId>
+    <version>${project.version}</version>
+</dependency>
+```
+
+然后在代码中使用：
+
+```java
+// 使用 API 模块定义的 DTO
+import org.jetlinks.pro.scheduler.api.entity.TaskDTO;
+import org.jetlinks.pro.scheduler.api.command.ExecuteTaskCommand;
+
+// 执行任务
+ExecuteTaskCommand command = new ExecuteTaskCommand();
+command.setTaskId(taskId);
+command.setParameters(params);
+// ...调用服务
+```
+
+### 4.3 创建带资产权限的模块
 
 **场景**: 创建一个"数据源"管理模块，需要资产权限控制
 
@@ -681,7 +1221,7 @@ mkdir -p modules/datasource-manager/src/main/java/org/jetlinks/pro/datasource/as
 # @DatasourceAsset 或 @AssetsController(type = "datasource")
 ```
 
-### 4.3 创建树形结构模块
+### 4.4 创建树形结构模块
 
 **场景**: 创建一个"组织架构"管理模块，需要树形结构
 
@@ -901,10 +1441,30 @@ public Flux<OrganizationEntity> queryTree(@Parameter(hidden = true) QueryParamEn
 
 ### 6.1 模块命名规范
 
-- **目录名**: 使用短横线分隔，如 `device-manager`, `rule-engine-manager`
+#### 单模块命名
+- **目录名**: `{模块名}-manager`，如 `template-manager`
 - **artifactId**: 与目录名一致
-- **包名**: 使用驼峰命名，如 `org.jetlinks.pro.device`, `org.jetlinks.pro.ruleengine`
-- **类名**: 首字母大写的驼峰命名，如 `DeviceManagerConfiguration`
+- **包名**: 使用驼峰命名，如 `org.jetlinks.pro.template`
+- **类名**: 首字母大写的驼峰命名，如 `TemplateManagerConfiguration`
+
+#### 多模块命名（推荐）
+- **父模块目录**: `{项目简写}-{模块名}`，如 `pms-report`
+- **父模块 artifactId**: 与目录名一致，如 `pms-report`
+- **API 模块**:
+  - 目录名: `{模块名}-api`，如 `report-api`
+  - artifactId: 与目录名一致
+  - 包名: `org.jetlinks.pro.{模块名}.api`，如 `org.jetlinks.pro.report.api`
+- **Manager 模块**:
+  - 目录名: `{模块名}-manager`，如 `report-manager`
+  - artifactId: 与目录名一致
+  - 包名: `org.jetlinks.pro.{模块名}`，如 `org.jetlinks.pro.report`
+  - 类名: 如 `ReportManagerConfiguration`
+
+#### 项目简写示例
+- `pms`: Platform Management System（平台管理系统）
+- `dms`: Device Management System（设备管理系统）
+- `ams`: Asset Management System（资产管理系统）
+- `wms`: Workflow Management System（工作流管理系统）
 
 ### 6.2 代码组织
 
@@ -1047,16 +1607,65 @@ public class ExampleService {
 
 创建 JetLinks 业务模块的核心步骤:
 
-1. ✅ **明确需求**: 模块名称、技术选型、业务特性
-2. ✅ **创建 pom.xml**: 添加必需和可选依赖
-3. ✅ **创建目录结构**: entity、service、web、enums、configuration
-4. ✅ **创建配置类**: Configuration + AutoConfiguration.imports
-5. ✅ **创建国际化文件**: messages_zh.properties + messages_en.properties
-6. ✅ **创建实体类**: 继承基类、添加注解、定义字段
-7. ✅ **创建服务类**: 继承 CRUD 基类、实现业务逻辑
-8. ✅ **创建控制器**: 实现 CRUD 接口、添加权限注解
-9. ✅ **创建资产类型**: 如需要资产权限控制
-10. ✅ **测试验证**: 编译、打包、启动、测试
+### 通用步骤：
+
+1. ✅ **明确需求**: 模块名称、项目简写、技术选型、业务特性、是否需要跨服务调用
+2. ✅ **选择模块结构**: 
+   - **单模块**: 简单业务，不需要跨服务调用（`{模块名}-manager`）
+   - **多模块（推荐）**: 需要跨服务调用或模块较复杂（`{项目简写}-{模块名}/{模块名}-api/{模块名}-manager`）
+3. ✅ **创建 pom.xml**: 
+   - 单模块：创建一个 POM（artifactId: `{模块名}-manager`）
+   - 多模块：创建三个 POM
+     - 父 POM（artifactId: `{项目简写}-{模块名}`，如 `pms-report`）
+     - API POM（artifactId: `{模块名}-api`，如 `report-api`）
+     - Manager POM（artifactId: `{模块名}-manager`，如 `report-manager`）
+4. ✅ **创建目录结构**: 
+   - 单模块：entity、service、web、enums、configuration
+   - 多模块：
+     - API 模块（entity、enums、command、query、event、constants）
+     - Manager 模块（entity、service、web、command、configuration）
+5. ✅ **创建配置类**: Configuration + AutoConfiguration.imports（在 Manager 模块）
+6. ✅ **创建国际化文件**: messages_zh.properties + messages_en.properties（在 Manager 模块）
+7. ✅ **创建实体类**: 
+   - API 模块：DTO/VO（简单 POJO）
+   - Manager 模块：数据库实体（继承基类、添加注解、定义字段）
+8. ✅ **创建服务类**: 
+   - API 模块：服务接口（如需跨服务调用）
+   - Manager 模块：服务实现（继承 CRUD 基类、实现业务逻辑）
+9. ✅ **创建控制器**: 实现 CRUD 接口、添加权限注解（在 Manager 模块）
+10. ✅ **创建资产类型**: 如需要资产权限控制（在 Manager 模块）
+11. ✅ **添加到父 POM**: 在根 POM 中添加模块引用
+12. ✅ **测试验证**: 编译、打包、启动、测试
+
+### 多模块结构优势：
+
+- ✅ **解耦合**: API 和实现分离，其他服务只依赖接口
+- ✅ **可扩展**: 便于版本管理和演进
+- ✅ **轻依赖**: API 模块依赖少，不会引入过多传递依赖
+- ✅ **跨服务**: 天然支持微服务架构中的服务间调用
+- ✅ **职责清晰**: API 定义契约，Manager 提供实现
+
+### 多模块命名规范总结：
+
+**命名结构**：
+```
+modules/{项目简写}-{模块名}/        # 父模块（如 pms-report）
+  ├── {模块名}-api/                 # API 模块（如 report-api）
+  └── {模块名}-manager/             # Manager 实现模块（如 report-manager）
+```
+
+**示例**：
+```
+modules/pms-report/                # 报表模块父目录
+  ├── report-api/                  # 报表 API 接口定义
+  └── report-manager/              # 报表管理实现
+```
+
+### 建议：
+
+> 🎯 **新建模块默认使用多模块结构**，即使暂时不需要跨服务调用，这样可以为未来扩展留下空间，避免后期重构的成本。
+
+> 📝 **命名规范统一使用 `-manager`**，实现模块统一命名为 `{模块名}-manager`，而不是 `-service`，保持与单模块命名的一致性。
 
 遵循本指南可以快速、规范地创建高质量的业务模块。
 

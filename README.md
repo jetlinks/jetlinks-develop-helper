@@ -11,6 +11,7 @@
 - [AI 使用指南](#ai-使用指南)
 - [使用场景决策树](#使用场景决策树)
 - [完整示例](#完整示例)
+- [快速参考](#快速参考)
 
 ---
 
@@ -21,13 +22,18 @@
 当用户请求创建或修改 JetLinks 代码时：
 
 1. **首先判断任务类型**：
+    - **不知道有哪些模块** → 先查看 [module-list](ai/module-list.md)
     - 创建新模块 → 使用 [module-creation-rules](ai/module-creation-rules.md)
     - 在现有模块中添加 CRUD 功能 → 使用 [common-crud-rules](ai/common-crud-rules.md)
-    - 两者都需要 → 先使用 module-creation-rules，再参考 common-crud-rules
+    - **不确定是模块引入还是跨服务调用** → 先查看 [module-reference](ai/module-reference.md)
+    - 跨服务调用（查询设备、触发告警等） → 使用 [cross-service-call-rules](ai/cross-service-call-rules.md)
+    - 订阅实时数据 → 使用 [realtime-subscription-rules](ai/realtime-subscription-rules.md)
+    - 监听实体事件 → 使用 [event-driven-rules](ai/event-driven-rules.md)
 
 2. **读取相应的规则文件**：
    ```
    请使用 read_file 工具读取完整规则，而不是依赖记忆
+   规则文件包含最新的代码模板和实际示例
    ```
 
 3. **严格遵循规则**：
@@ -43,6 +49,41 @@
 ---
 
 ## 📖 规则文件说明
+
+### 0. 模块列表速查 - [module-list](ai/module-list.md)
+
+**用途**: 快速检索所有可用模块及其 Maven 引入方式
+
+**包含内容**:
+
+- ✅ 所有业务管理模块（10个）
+- ✅ 所有基础组件（19个）
+- ✅ 所有网络组件（8个）
+- ✅ 所有数据存储组件（10个）
+- ✅ 所有消息中间件组件（3个）
+- ✅ 所有通知组件（7个）
+- ✅ AI组件、微服务组件
+- ✅ Maven 依赖配置（开箱即用）
+- ✅ 简要功能说明
+- ✅ 常用组件组合建议
+
+**适用场景**:
+
+- ✨ 不知道项目有哪些可用模块
+- ✨ 需要快速查找特定功能的模块
+- ✨ 需要复制 Maven 依赖配置
+- ✨ 了解模块的基本功能
+
+**何时使用**:
+
+```
+用户说："有哪些可用的模块？"
+用户说："如何引入XXX模块？"
+用户说："XXX功能在哪个模块？"
+AI说："让我先查看模块列表，确认有哪些可用模块"
+```
+
+---
 
 ### 1. 模块创建规则 - [module-creation-rules](ai/module-creation-rules.md)
 
@@ -77,7 +118,68 @@
 
 ---
 
-### 2. 实时数据订阅规则 - [realtime-subscription-rules](ai/realtime-subscription-rules.md)
+### 2. 跨服务调用规则 - [cross-service-call-rules](ai/cross-service-call-rules.md)
+
+**用途**: 使用命令模式进行跨服务调用（RPC）
+
+**包含内容**:
+
+- ✅ 命令模式概述和优势
+- ✅ Consumer 端调用方式（响应式、阻塞式、路由）
+- ✅ Provider 端服务定义（使用 @CommandService 注解）
+- ✅ 常用命令服务速查表
+  - 设备相关命令（device, product, protocol, firmware）
+  - 告警相关命令（alarm, alarmConfig, alarmHistory, alarmRecord）
+  - 通知相关命令（sendNotify）
+  - 数据源相关命令
+  - 文件服务、认证服务
+- ✅ 自定义命令定义
+- ✅ 最佳实践（优先使用注解、错误处理、性能优化）
+- ✅ 完整示例代码
+
+**适用场景**:
+
+- ✨ 跨模块调用其他服务（不要直接注入 Service）
+- ✨ 查询设备信息、产品信息
+- ✨ 触发告警、查询告警历史
+- ✨ 发送通知消息
+- ✨ 微服务间通信
+- ✨ 需要集群路由和负载均衡的场景
+
+**何时使用**:
+
+```
+用户说："查询设备信息"
+用户说："调用其他服务的方法"
+用户说："触发告警"
+用户说："发送通知"
+用户说："跨模块访问数据"
+用户说："在A服务中调用B服务的功能"
+```
+
+**核心原则**:
+
+```java
+// ❌ 不要直接注入其他模块的 Service
+@Autowired
+private DeviceInstanceService deviceService;
+
+// ✅ 使用命令模式调用
+CommandSupportManagerProviders
+    .getCommandSupport(SdkServices.deviceService, "device")
+    .flatMap(cmd -> cmd.execute(QueryByIdCommand.of(DeviceInfo.class, id)));
+
+// ✅ Provider 端使用 @CommandService 注解定义服务
+@Component
+@CommandService(id = "myService", name = "我的服务")
+public class MyCommandService implements CrudCommandHandler<MyEntity, String> {
+    // 自动提供 CRUD 命令
+}
+```
+
+---
+
+### 3. 实时数据订阅规则 - [realtime-subscription-rules](ai/realtime-subscription-rules.md)
 
 **用途**: 使用 @Subscribe 注解和 EventBus 实现实时数据订阅
 
@@ -116,7 +218,7 @@
 
 ---
 
-### 3. 事件驱动开发规范 - [event-driven-rules](ai/event-driven-rules.md)
+### 4. 事件驱动开发规范 - [event-driven-rules](ai/event-driven-rules.md)
 
 **用途**: 使用 Spring Event 处理实体增删改查事件实现业务解耦
 
@@ -155,7 +257,74 @@
 
 ---
 
-### 4. 通用 CRUD 规则 - [common-crud-rules](ai/common-crud-rules.md)
+### 5. 模块参考手册 - [module-reference](ai/module-reference.md)
+
+**用途**: 了解项目中所有业务模块的功能和依赖关系
+
+**包含内容**:
+
+- ✅ 所有业务模块（Manager）的详细说明
+- ✅ 每个模块的功能、主要服务、命令服务
+- ✅ **模块引入 vs 跨服务调用决策指南**
+- ✅ 决策流程图和适用场景对比
+- ✅ Maven 依赖配置示例
+- ✅ 命令服务速查表
+- ✅ 常见问题解答
+
+**包含的模块**:
+
+- **device-manager**: 设备管理（设备、产品、分组、固件）
+- **authentication-manager**: 认证权限（用户、角色、菜单、组织）
+- **rule-engine-manager**: 规则引擎（场景联动、告警管理）
+- **notify-manager**: 通知管理（邮件、短信、钉钉、企业微信）
+- **network-manager**: 网络组件（MQTT、TCP、UDP、HTTP）
+- **datasource-manager**: 数据源管理（MySQL、PostgreSQL、ClickHouse）
+- **visualization-manager**: 可视化（大屏、图表）
+- **logging-manager**: 日志管理
+- **jetlinks-function**: 函数管理（脚本函数）
+- **jetlinks-media**: 视频流媒体（GB28181、ONVIF）
+
+**适用场景**:
+
+- ✨ 不确定某个功能属于哪个模块
+- ✨ 需要决定是模块引入还是跨服务调用
+- ✨ 想了解模块提供的命令服务
+- ✨ 需要查看 Maven 依赖配置
+- ✨ 了解模块间的数据传递方式
+
+**何时使用**:
+
+```
+用户说："我需要查询设备信息，是引入 device-manager 还是用命令调用？"
+用户说："这个功能属于哪个模块？"
+用户说："有哪些可用的命令服务？"
+用户说："如何在模块间传递数据？"
+AI说："让我先查看模块参考手册，确定使用方式"
+```
+
+**核心决策**:
+
+```
+需要使用其他模块功能时
+    ↓
+是否需要以下任一场景？
+- 深度集成（使用核心类）
+- 扩展功能（实现接口）
+- 监听事件
+- 频繁调用（性能敏感）
+    ↓
+┌───────┴───────┐
+│               │
+是             否
+│               │
+↓               ↓
+模块引入      跨服务调用
+(Maven依赖)   (命令模式)
+```
+
+---
+
+### 6. 通用 CRUD 规则 - [common-crud-rules](ai/common-crud-rules.md)
 
 **用途**: 在现有模块中创建或修改 CRUD 功能相关代码
 
@@ -204,13 +373,28 @@
 
 ### 基本原则
 
-1. **始终读取完整规则**
+1. **🔴 最重要：代码优先，避免推测**
+   ```
+   ❌ 禁止：根据文档描述凭空推测 API 的使用方式
+   ✅ 必须：先搜索项目中的现有用例，阅读实际代码
+   ✅ 必须：验证所有类和方法都真实存在
+   ✅ 必须：基于真实代码调整生成新代码
+   
+   工作流程：
+   1. 搜索相关功能的现有实现 (grep/codebase_search)
+   2. 阅读找到的真实代码示例
+   3. 验证类存在性和方法签名
+   4. 参考真实代码生成新代码
+   5. 说明代码参考了哪个现有实现
+   ```
+
+2. **始终读取完整规则**
    ```
    不要依赖记忆，使用 read_file 读取完整的规则文件
    规则文件包含最新的模板和最佳实践
    ```
 
-2. **明确用户需求**
+3. **明确用户需求**
    ```
    - 模块名称是什么？
    - 使用响应式还是阻塞式编程？（默认：响应式）
@@ -219,7 +403,7 @@
    - 是否需要树形结构？
    ```
 
-3. **生成完整代码**
+4. **生成完整代码**
    ```
    - 包含完整的包声明和导入语句
    - 包含所有必需的注解
@@ -227,7 +411,7 @@
    - 提供 Swagger 文档注解
    ```
 
-4. **遵循命名规范**
+5. **遵循命名规范**
    ```
    - 模块名: kebab-case (template-manager)
    - 包名: camelCase (org.jetlinks.pro.template)
@@ -235,7 +419,7 @@
    - 变量名: camelCase (templateService)
    ```
 
-5. **使用检查清单**
+6. **使用检查清单**
    ```
    代码生成后，参考规则文件中的检查清单验证完整性
    ```
@@ -252,7 +436,10 @@
 │  2. 判断任务类型                                  │
 │     ├─ 创建新模块？→ module-creation-rules      │
 │     ├─ 添加CRUD？  → common-crud-rules          │
-│     └─ 两者都需要？→ 两个规则都使用              │
+│     ├─ 跨服务调用？→ cross-service-call-rules   │
+│     ├─ 订阅消息？  → realtime-subscription-rules│
+│     ├─ 监听事件？  → event-driven-rules         │
+│     └─ 不确定？    → module-reference           │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
@@ -262,25 +449,39 @@
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  4. 收集详细信息                                  │
+│  🔴 4. 搜索现有代码（最重要！）                    │
+│     - 使用 grep 搜索相关类名、注解、方法          │
+│     - 使用 codebase_search 查找功能实现          │
+│     - 阅读找到的真实代码示例                      │
+│     - 验证类、方法、注解的实际使用方式             │
+│     - 如果找不到，查看依赖的 JAR 包源码           │
+│     ⚠️ 禁止跳过此步骤！                          │
+└─────────────────┬───────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────┐
+│  5. 收集详细信息                                  │
 │     - 模块名称、实体名称、字段列表                │
 │     - 编程模式（响应式/阻塞式）                   │
 │     - 权限和资产要求                              │
+│     - 确认所有使用的类都真实存在                  │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  5. 根据模板生成代码                              │
-│     - 使用规则文件中的代码模板                    │
-│     - 替换占位符                                  │
-│     - 保持完整性                                  │
+│  6. 基于真实代码生成新代码                        │
+│     - 参考找到的实际代码示例                      │
+│     - 保持导入语句、注解、方法签名一致            │
+│     - 调整为用户的具体需求                        │
+│     - 保持代码风格和项目结构一致                  │
 └─────────────────┬───────────────────────────────┘
                   │
                   ▼
 ┌─────────────────────────────────────────────────┐
-│  6. 验证和检查                                    │
+│  7. 验证和检查                                    │
 │     - 使用检查清单验证                            │
 │     - 确保所有注解完整                            │
+│     - 说明代码参考了哪个现有实现                  │
 │     - 提供使用说明                                │
 └─────────────────────────────────────────────────┘
 ```
@@ -292,6 +493,12 @@
 ```
 用户的请求
     │
+    ├─ "有哪些可用的模块？" / "如何引入XXX模块？"
+    │   └─→ 查看 module-list
+    │       ├─ 快速查找模块
+    │       ├─ 复制 Maven 配置
+    │       └─→ 了解模块基本功能
+    │
     ├─ "创建一个XXX管理模块"
     │   │
     │   ├─ 需要完整的模块结构（pom.xml、配置类等）
@@ -301,6 +508,18 @@
     │   └─ 只需要 Entity/Service/Controller
     │       └─→ 使用 common-crud-rules
     │           └─→ 生成：Entity, Service, Controller
+    │
+    ├─ "不确定某功能属于哪个模块" / "不知道用模块引入还是跨服务调用"
+    │   └─→ 先查看 module-reference
+    │       ├─ 查看模块功能列表
+    │       ├─ 查看决策流程图
+    │       └─→ 根据场景选择方式
+    │
+    ├─ "查询设备信息" / "调用其他服务"
+    │   └─→ 使用 cross-service-call-rules
+    │       ├─ 不要直接注入其他模块的 Service
+    │       ├─ 使用 CommandSupportManagerProviders 进行调用
+    │       └─→ 查看常用命令服务速查表
     │
     ├─ "订阅设备XXX消息" / "监听设备XXX"
     │   └─→ 使用 realtime-subscription-rules
@@ -492,26 +711,58 @@
 
 ## 🎯 AI 快速参考
 
+### 搜索命令速查表（必读！）
+
+在生成任何代码前，使用以下命令搜索现有实现：
+
+| 功能场景 | 搜索命令 | 目的 |
+|---------|---------|------|
+| **跨服务调用** | `grep -r "CommandSupportManagerProviders" modules/` | 查找命令调用示例 |
+| | `grep -r "@CommandService" modules/` | 查找命令服务定义 |
+| | `grep -r "QueryByIdCommand" modules/` | 查找查询命令用法 |
+| **订阅消息** | `grep -r "@Subscribe" modules/` | 查找订阅注解用法 |
+| | `grep -r "EventBus.subscribe" modules/` | 查找编程式订阅 |
+| | `grep -r "device/message" modules/` | 查找设备消息订阅 |
+| **监听事件** | `grep -r "@EventListener" modules/` | 查找事件监听器 |
+| | `grep -r "EntityModifyEvent" modules/` | 查找实体修改事件 |
+| | `grep -r "event.async()" modules/` | 查找响应式事件处理 |
+| **CRUD 实现** | `grep -r "GenericReactiveCrudService" modules/` | 查找响应式服务示例 |
+| | `grep -r "AssetsHolderCrudController" modules/` | 查找控制器示例 |
+| | `grep -r "@Table" modules/` | 查找实体类定义 |
+| **权限控制** | `grep -r "@Authorize" modules/` | 查找权限注解用法 |
+| | `grep -r "@AssetsController" modules/` | 查找资产权限控制 |
+| **查找类定义** | `find modules -name "ClassName.java"` | 验证类是否存在 |
+| | `grep -r "import.*ClassName" modules/` | 查看导入路径 |
+
 ### 常用代码模板快速定位
 
-| 需求              | 规则文件                     | 章节    |
-|-----------------|--------------------------|-------|
-| Maven pom.xml   | module-creation-rules    | 2.2   |
-| Configuration 类 | module-creation-rules    | 2.4   |
-| 基础实体类           | common-crud-rules        | 1.1   |
-| 响应式服务           | common-crud-rules        | 2.1   |
-| 阻塞式服务           | common-crud-rules        | 2.A.1 |
-| 响应式控制器          | common-crud-rules        | 3.1   |
-| 阻塞式控制器          | common-crud-rules        | 3.A.1 |
-| 资产类型定义          | module-creation-rules    | 2.9   |
-| 权限控制            | common-crud-rules        | 4     |
-| **订阅设备消息**      | **realtime-subscription-rules** | **全文** |
-| **@Subscribe 注解**  | **realtime-subscription-rules** | **全文** |
-| **实时数据处理**      | **realtime-subscription-rules** | **场景示例** |
-| **实体事件监听**      | **event-driven-rules** | **一、二** |
-| **@EventListener** | **event-driven-rules** | **一** |
-| **event.async()** | **event-driven-rules** | **一、六** |
-| **集群事件监听**      | **event-driven-rules** | **四** |
+| 需求              | 规则文件                     | 章节    | 搜索建议 |
+|-----------------|--------------------------|-------|---------|
+| **查看所有模块**    | **module-list** | **全文** | 快速检索所有可用模块 |
+| Maven pom.xml   | module-creation-rules    | 2.2   | 查看现有模块的 pom.xml |
+| Configuration 类 | module-creation-rules    | 2.4   | `grep -r "Configuration.java" modules/` |
+| 基础实体类           | common-crud-rules        | 1.1   | `grep -r "@Table" modules/` |
+| 响应式服务           | common-crud-rules        | 2.1   | `grep -r "GenericReactiveCrudService" modules/` |
+| 阻塞式服务           | common-crud-rules        | 2.A.1 | `grep -r "GenericCrudService" modules/` |
+| 响应式控制器          | common-crud-rules        | 3.1   | `grep -r "AssetsHolderCrudController" modules/` |
+| 阻塞式控制器          | common-crud-rules        | 3.A.1 | `grep -r "BlockingAssetsHolderCrudController" modules/` |
+| 资产类型定义          | module-creation-rules    | 2.9   | `grep -r "AssetType" modules/` |
+| 权限控制            | common-crud-rules        | 4     | `grep -r "@Authorize" modules/` |
+| **模块列表查询**      | **module-reference** | **一** | 查看各模块的功能说明 |
+| **模块引入决策**      | **module-reference** | **二.1** | 何时添加 Maven 依赖 |
+| **跨服务调用决策**    | **module-reference** | **二.2** | 何时使用命令模式 |
+| **命令服务速查**      | **module-reference** | **四.1** | 可用的命令服务列表 |
+| **跨服务调用**        | **cross-service-call-rules** | **全文** | `grep -r "CommandSupportManagerProviders" modules/` |
+| **@CommandService** | **cross-service-call-rules** | **二** | `grep -r "@CommandService" modules/` |
+| **查询设备信息**      | **cross-service-call-rules** | **三.1** | `grep -r "deviceService" modules/` |
+| **触发告警**        | **cross-service-call-rules** | **三.2** | `grep -r "TriggerAlarmCommand" modules/` |
+| **订阅设备消息**      | **realtime-subscription-rules** | **全文** | `grep -r "@Subscribe" modules/` |
+| **@Subscribe 注解**  | **realtime-subscription-rules** | **全文** | `grep -r "device/message" modules/` |
+| **实时数据处理**      | **realtime-subscription-rules** | **场景示例** | 查看具体的订阅处理类 |
+| **实体事件监听**      | **event-driven-rules** | **一、二** | `grep -r "@EventListener" modules/` |
+| **@EventListener** | **event-driven-rules** | **一** | `grep -r "EntityModifyEvent" modules/` |
+| **event.async()** | **event-driven-rules** | **一、六** | `grep -r "event.async()" modules/` |
+| **集群事件监听**      | **event-driven-rules** | **四** | `grep -r "ClusterEntityEventListener" modules/` |
 
 ### 必需注解检查清单
 
@@ -547,18 +798,80 @@
 @Component
 @Slf4j
 @EventListener 或 @TransactionalEventListener
+
+// 命令服务定义
+@Component
+@CommandService(id = "serviceName", name = "服务名称")
+implements CrudCommandHandler<Entity, String>
 ```
 
 ---
 
 ## 💡 提示
 
-- **对于 AI**: 请始终完整读取规则文件，不要依赖记忆或假设
-- **对于开发者**: 这些规则同样适用于人工开发，可以作为开发规范参考
+### 对于 AI 开发助手：
+
+1. **🔴 代码优先原则（最重要）**
+   - ❌ **禁止**：根据文档凭空推测 API 的使用方式
+   - ✅ **必须**：先搜索项目现有用例，阅读实际代码
+   - ✅ **必须**：验证所有类和方法都真实存在
+   - ✅ **必须**：基于真实代码生成新代码
+   - ✅ **必须**：说明代码参考了哪个现有实现
+
+2. **📖 读取规则文件**
+   - 始终完整读取规则文件，不要依赖记忆或假设
+   - 规则文件包含最新的模板和最佳实践
+
+3. **🔍 搜索工作流**
+   ```bash
+   # 步骤1: 搜索相关功能
+   grep -r "关键词" modules/
+   
+   # 步骤2: 阅读找到的代码
+   # 使用 read_file 工具读取完整文件
+   
+   # 步骤3: 验证类的存在性
+   find modules -name "ClassName.java"
+   
+   # 步骤4: 基于真实代码生成
+   # 参考实际代码的结构和风格
+   ```
+
+4. **📝 交付代码时说明**
+   - 告诉用户代码参考了哪个现有文件
+   - 说明使用的搜索命令和找到的示例
+   - 如有不确定的地方，明确指出需要验证
+
+### 对于人工开发者：
+
+- **开发规范参考**: 这些规则同样适用于人工开发，可以作为开发规范参考
 - **保持更新**: 规则文件会持续更新，请关注最新版本
+- **善用搜索**: 在实现新功能前，先搜索项目中的相似实现
 
 ---
 
 ## 📞 反馈
 
 如发现规则不完善或需要补充的内容，请及时更新规则文件。
+
+---
+
+## ⚠️ AI 重要提醒
+
+**在使用本开发辅助工具时，请牢记以下核心原则：**
+
+```
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│  🔴 代码优先，避免推测                            │
+│                                                 │
+│  ❌ 不要凭文档描述推测 API                        │
+│  ✅ 必须搜索项目现有代码                          │
+│  ✅ 必须阅读真实实现示例                          │
+│  ✅ 必须验证类和方法存在                          │
+│  ✅ 必须基于实际代码生成                          │
+│                                                 │
+│  记住：你的优势是搜索和理解，而不是凭空创造        │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
